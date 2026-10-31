@@ -1,9 +1,10 @@
 // The three.js scene behind HeroRobot: a 3D humanoid bust that turns its head to look at the mouse cursor.
 // The robot is built from three.js primitives, so there is no model file to load.
 // HeroRobot loads this module with import() so three.js stays out of the page's initial bundle.
+// It is drawn as black-and-white line art, like a patent drawing: the parts are rendered into an
+// offscreen buffer (part id, normal, depth), then an ink pass draws contour lines wherever those change.
 
 import * as THREE from "three";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 // Vertical slice of the bust that should fill the banner height (world units).
 const FRAME = { top: 2.6, bottom: -3.45 };
@@ -19,6 +20,87 @@ const IDLE_AFTER = 4; // seconds without pointer movement before the robot glanc
 // On wide banners, shift the robot right so it sits beside the centred text (fraction of width).
 const WIDE_BREAKPOINT = 1024;
 const WIDE_OFFSET = 0.34;
+// Linear depth is stored divided by this, so it fits the 0–1 range of the buffer's alpha channel.
+const DEPTH_RANGE = 40;
+// Hatching line spacing (world units): dense on the visor (dark glass), sparse on the joints (graphite).
+const HATCH = { visor: 0.03, joint: 0.06 };
+
+// Part pass: view-space normal (xy), part id and linear depth. Hatched parts add the hatch ink
+// (0–1, antialiased) to their id as a fraction up to 0.25, which the ink pass reads back.
+const PART_VERTEX = /* glsl */ `
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  varying float vDepth;
+  void main() {
+    vNormal = normalMatrix * normal;
+    vPosition = position;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vDepth = -mv.z;
+    gl_Position = projectionMatrix * mv;
+  }`;
+const PART_FRAGMENT = /* glsl */ `
+  uniform float uId;
+  uniform float uHatch; // line spacing, 0 = no hatching
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  varying float vDepth;
+  void main() {
+    float hatch = 0.0;
+    if (uHatch > 0.0) {
+      // Diagonal stripes in the part's own space, so they stay put on the surface as it turns.
+      float t = (vPosition.x + vPosition.y) / uHatch;
+      hatch = 1.0 - smoothstep(0.25, 1.0, abs(fract(t) - 0.5) / fwidth(t));
+    }
+    gl_FragColor = vec4(normalize(vNormal).xy, uId + 0.25 * hatch, vDepth / ${DEPTH_RANGE.toFixed(1)});
+  }`;
+
+// Ink pass: a pixel is inked when a neighbour belongs to another part, faces a different way
+// (a crease) or the depth jumps (a part overlapping itself). Output is black with coverage alpha.
+// Only one side of each edge is inked (the nearer pixel, or for creases the pixel below/left),
+// which keeps the lines one pixel wide.
+const INK_VERTEX = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = vec4(position.xy, 0.0, 1.0);
+  }`;
+const INK_FRAGMENT = /* glsl */ `
+  uniform sampler2D tParts;
+  uniform vec2 uTexel;
+  varying vec2 vUv;
+
+  vec4 c;
+  vec3 cNormal;
+
+  vec3 unpackNormal(vec4 p) {
+    return vec3(p.xy, sqrt(max(0.0, 1.0 - dot(p.xy, p.xy))));
+  }
+  vec4 at(float x, float y) {
+    return texture2D(tParts, vUv + vec2(x, y) * uTexel);
+  }
+  // ahead: whether n is the up/right neighbour, which owns creases.
+  float edge(vec4 n, bool ahead) {
+    if (abs(n.b - c.b) > 0.5) return c.a < n.a ? 1.0 : 0.0;
+    return ahead && dot(unpackNormal(n), cNormal) < 0.8 ? 1.0 : 0.0;
+  }
+  // a is the down/left neighbour, b the opposite one.
+  float edgePair(vec4 a, vec4 b) {
+    float crease = a.a + b.a - 2.0 * c.a > 0.1 / ${DEPTH_RANGE.toFixed(1)} ? 2.0 : 0.0;
+    return max(edge(a, false) + edge(b, true), crease);
+  }
+
+  void main() {
+    c = at(0.0, 0.0);
+    cNormal = unpackNormal(c);
+    float hits = edgePair(at(-1.0, 0.0), at(1.0, 0.0))
+               + edgePair(at(0.0, -1.0), at(0.0, 1.0))
+               + edgePair(at(-1.0, -1.0), at(1.0, 1.0))
+               + edgePair(at(1.0, -1.0), at(-1.0, 1.0));
+    // Partial coverage on stair steps softens the lines a little.
+    float ink = clamp(hits / 3.0, 0.0, 1.0);
+    ink = max(ink, fract(c.b) * 4.0 * 0.6);
+    gl_FragColor = vec4(0.0, 0.0, 0.0, ink);
+  }`;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 // Frame-rate independent exponential smoothing factor.
@@ -31,28 +113,22 @@ function layoutTop(el: HTMLElement) {
 }
 
 function buildRobot() {
-  const shell = new THREE.MeshPhysicalMaterial({
-    color: 0xf5f5f3,
-    roughness: 0.32,
-    clearcoat: 0.7,
-    clearcoatRoughness: 0.25,
-  });
-  const graphite = new THREE.MeshStandardMaterial({ color: 0x2b2e35, roughness: 0.42, metalness: 0.65 });
-  const visor = new THREE.MeshPhysicalMaterial({
-    color: 0x0a0c11,
-    roughness: 0.12,
-    metalness: 0.3,
-    clearcoat: 1,
-    clearcoatRoughness: 0.05,
-  });
-  const glow = new THREE.MeshStandardMaterial({ color: 0x60a5fa, emissive: 0x3b82f6, emissiveIntensity: 2.2 });
-
-  const mesh = (geometry: THREE.BufferGeometry, material: THREE.Material) => new THREE.Mesh(geometry, material);
+  // Every part gets its own id, so the ink pass outlines it wherever it meets another part.
+  let nextId = 1;
+  const mesh = (geometry: THREE.BufferGeometry, hatch = 0) =>
+    new THREE.Mesh(
+      geometry,
+      new THREE.ShaderMaterial({
+        uniforms: { uId: { value: nextId++ }, uHatch: { value: hatch } },
+        vertexShader: PART_VERTEX,
+        fragmentShader: PART_FRAGMENT,
+      }),
+    );
 
   // Smooth lathe solid from (radius, y) control points, flattened front-to-back.
-  const lathe = (points: number[][], material: THREE.Material, depth = 0.6) => {
+  const lathe = (points: number[][], hatch = 0, depth = 0.6) => {
     const curve = new THREE.SplineCurve(points.map(([x, y]) => new THREE.Vector2(x, y)));
-    const m = mesh(new THREE.LatheGeometry(curve.getPoints(48), 64), material);
+    const m = mesh(new THREE.LatheGeometry(curve.getPoints(48), 64), hatch);
     m.scale.z = depth;
     return m;
   };
@@ -61,20 +137,19 @@ function buildRobot() {
   const torso = new THREE.Group();
   const chest = lathe(
     [[0.001, -1.45], [0.62, -1.4], [0.8, -0.85], [0.88, -0.35], [0.78, 0.02], [0.4, 0.2], [0.001, 0.24]],
-    shell,
   );
-  const waist = lathe([[0.001, -2.05], [0.5, -2.0], [0.46, -1.7], [0.52, -1.35], [0.001, -1.3]], graphite);
-  const pelvis = lathe([[0.001, -3.6], [0.66, -3.5], [0.66, -2.3], [0.56, -1.95], [0.001, -1.9]], shell);
-  const collar = mesh(new THREE.TorusGeometry(0.27, 0.05, 16, 48), graphite);
+  const waist = lathe([[0.001, -2.05], [0.5, -2.0], [0.46, -1.7], [0.52, -1.35], [0.001, -1.3]], HATCH.joint);
+  const pelvis = lathe([[0.001, -3.6], [0.66, -3.5], [0.66, -2.3], [0.56, -1.95], [0.001, -1.9]]);
+  const collar = mesh(new THREE.TorusGeometry(0.27, 0.05, 16, 48));
   collar.rotation.x = Math.PI / 2;
   collar.position.y = 0.17;
   torso.add(chest, waist, pelvis, collar);
 
   // Chest core light.
-  const core = mesh(new THREE.TorusGeometry(0.075, 0.016, 12, 40), glow);
+  const core = mesh(new THREE.TorusGeometry(0.075, 0.016, 12, 40));
   core.position.set(0, -0.45, 0.515);
   core.rotation.x = -0.2;
-  const coreBack = mesh(new THREE.CircleGeometry(0.07, 40), graphite);
+  const coreBack = mesh(new THREE.CircleGeometry(0.07, 40), HATCH.joint);
   coreBack.position.set(0, -0.45, 0.51);
   coreBack.rotation.x = -0.2;
   torso.add(core, coreBack);
@@ -84,17 +159,17 @@ function buildRobot() {
     const shoulder = new THREE.Group();
     shoulder.position.set(side * 0.98, -0.2, 0);
     shoulder.rotation.z = side * 0.07;
-    const joint = mesh(new THREE.SphereGeometry(0.24, 32, 24), graphite);
-    const cap = mesh(new THREE.SphereGeometry(0.3, 40, 28), shell);
+    const joint = mesh(new THREE.SphereGeometry(0.24, 32, 24), HATCH.joint);
+    const cap = mesh(new THREE.SphereGeometry(0.3, 40, 28));
     cap.scale.set(1, 0.85, 1);
     cap.position.set(side * 0.06, 0.05, 0);
-    const ring = mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 32), graphite);
+    const ring = mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 32), HATCH.joint);
     ring.position.set(side * 0.06, -0.33, 0);
-    const upperArm = mesh(new THREE.CapsuleGeometry(0.2, 0.95, 8, 32), shell);
+    const upperArm = mesh(new THREE.CapsuleGeometry(0.2, 0.95, 8, 32));
     upperArm.position.set(side * 0.06, -0.95, 0);
-    const elbow = mesh(new THREE.SphereGeometry(0.17, 24, 16), graphite);
+    const elbow = mesh(new THREE.SphereGeometry(0.17, 24, 16), HATCH.joint);
     elbow.position.set(side * 0.06, -1.62, 0);
-    const forearm = mesh(new THREE.CapsuleGeometry(0.18, 0.9, 8, 32), shell);
+    const forearm = mesh(new THREE.CapsuleGeometry(0.18, 0.9, 8, 32));
     forearm.position.set(side * 0.06, -2.25, 0.05);
     shoulder.add(joint, cap, ring, upperArm, elbow, forearm);
     torso.add(shoulder);
@@ -103,11 +178,11 @@ function buildRobot() {
   // Neck: graphite actuator stack. Pivot sits at the top of the torso.
   const neck = new THREE.Group();
   neck.position.y = 0.16;
-  const neckCore = mesh(new THREE.CylinderGeometry(0.17, 0.2, 0.5, 32), graphite);
+  const neckCore = mesh(new THREE.CylinderGeometry(0.17, 0.2, 0.5, 32), HATCH.joint);
   neckCore.position.y = 0.22;
   neck.add(neckCore);
   for (const y of [0.1, 0.22, 0.34]) {
-    const band = mesh(new THREE.TorusGeometry(0.185, 0.018, 10, 40), graphite);
+    const band = mesh(new THREE.TorusGeometry(0.185, 0.018, 10, 40));
     band.rotation.x = Math.PI / 2;
     band.position.y = y;
     neck.add(band);
@@ -120,15 +195,15 @@ function buildRobot() {
   head.rotation.order = "YXZ";
   const skullScale = new THREE.Vector3(0.88, 1, 0.95);
   const skullCenter = new THREE.Vector3(0, 0.5, 0.02);
-  const skull = mesh(new THREE.SphereGeometry(0.5, 64, 48), shell);
+  const skull = mesh(new THREE.SphereGeometry(0.5, 64, 48));
   skull.scale.copy(skullScale);
   skull.position.copy(skullCenter);
 
-  // Visor: a band cut from a slightly larger sphere so it wraps the face.
+  // Visor: a band cut from a slightly larger sphere so it wraps the face. Hatched to read as dark glass.
   const visorWidth = 2.0;
   const face = mesh(
     new THREE.SphereGeometry(0.508, 64, 32, Math.PI / 2 - visorWidth / 2, visorWidth, 0.95, 0.78),
-    visor,
+    HATCH.visor,
   );
   face.scale.copy(skullScale);
   face.position.copy(skullCenter);
@@ -143,7 +218,7 @@ function buildRobot() {
   const eyeGeometry = new THREE.CapsuleGeometry(0.032, 0.085, 4, 16).rotateZ(Math.PI / 2);
   const eyes: THREE.Mesh[] = [];
   for (const side of [-1, 1]) {
-    const eye = mesh(eyeGeometry, glow);
+    const eye = mesh(eyeGeometry);
     const p = onVisor(1.3, Math.PI / 2 + side * 0.3);
     eye.position.copy(p);
     eye.lookAt(p.clone().sub(skullCenter).multiplyScalar(2).add(skullCenter));
@@ -154,10 +229,10 @@ function buildRobot() {
 
   // Ear pods with a light ring.
   for (const side of [-1, 1]) {
-    const pod = mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.09, 32), graphite);
+    const pod = mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.09, 32), HATCH.joint);
     pod.rotation.z = Math.PI / 2;
     pod.position.set(side * 0.43, 0.5, 0);
-    const ring = mesh(new THREE.TorusGeometry(0.1, 0.012, 8, 32), glow);
+    const ring = mesh(new THREE.TorusGeometry(0.1, 0.012, 8, 32));
     ring.rotation.y = Math.PI / 2;
     ring.position.set(side * 0.48, 0.5, 0);
     head.add(pod, ring);
@@ -183,27 +258,38 @@ export function mountRobot(
     onReady: () => void;
   },
 ) {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  // No MSAA: the canvas only ever shows the full-screen ink pass, which antialiases its own lines.
+  const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
   // It's a background behind text: 1.5x looks almost the same as 2x with ~45% fewer pixels to shade.
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.domElement.className = "absolute inset-0 h-full w-full";
+  // Black ink on transparent; inverted to white ink in dark mode, like the hero's other line drawings.
+  renderer.domElement.className = "absolute inset-0 h-full w-full dark:invert";
+  // Clears the part buffer to "background": part id 0 at maximum depth.
+  renderer.setClearColor(0x000000, 1);
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environment = envMap;
-  scene.environmentIntensity = 0.7;
-
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 100);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xd6d3d1, 1.2));
-  const key = new THREE.DirectionalLight(0xffffff, 2.2);
-  key.position.set(-4, 5, 6);
-  const rim = new THREE.DirectionalLight(0x93c5fd, 2.5);
-  rim.position.set(5, 3, -4);
-  scene.add(key, rim);
+
+  // Nearest filtering: the ink pass compares exact per-pixel values, which must not be blended.
+  const parts = new THREE.WebGLRenderTarget(1, 1, {
+    type: THREE.HalfFloatType,
+    minFilter: THREE.NearestFilter,
+    magFilter: THREE.NearestFilter,
+  });
+  const ink = new THREE.ShaderMaterial({
+    uniforms: { tParts: { value: parts.texture }, uTexel: { value: new THREE.Vector2() } },
+    vertexShader: INK_VERTEX,
+    fragmentShader: INK_FRAGMENT,
+    // Writes every pixel as-is; black with alpha is already premultiplied.
+    blending: THREE.NoBlending,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const inkScene = new THREE.Scene();
+  inkScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), ink));
+  const inkCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const bufferSize = new THREE.Vector2();
 
   const { torso, neck, head, eyes, headCenter } = buildRobot();
   scene.add(torso);
@@ -230,6 +316,9 @@ export function mountRobot(
     const { clientWidth: w, clientHeight: h } = container;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
+    renderer.getDrawingBufferSize(bufferSize);
+    parts.setSize(bufferSize.x, bufferSize.y);
+    ink.uniforms.uTexel.value.set(1 / bufferSize.x, 1 / bufferSize.y);
     camera.aspect = w / h;
     // Fit the bust to the banner height, but keep its shoulders in view on narrow screens.
     const halfTan = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
@@ -329,7 +418,10 @@ export function mountRobot(
     const blink = clamp(1 - Math.abs(t - blinkStart - 0.08) / 0.08, 0, 1);
     for (const eye of eyes) eye.scale.y = 1 - blink * 0.9;
 
+    renderer.setRenderTarget(parts);
     renderer.render(scene, camera);
+    renderer.setRenderTarget(null);
+    renderer.render(inkScene, inkCamera);
     if (firstFrame) {
       firstFrame = false;
       onReady();
@@ -339,8 +431,7 @@ export function mountRobot(
   // Compile the shaders in the background (parallel compile where supported) instead of
   // stalling the main thread on the first render.
   let disposed = false;
-  renderer
-    .compileAsync(scene, camera)
+  Promise.all([renderer.compileAsync(scene, camera), renderer.compileAsync(inkScene, inkCamera)])
     .catch(() => {})
     .then(() => {
       if (!disposed) renderer.setAnimationLoop(frame);
@@ -353,14 +444,15 @@ export function mountRobot(
     window.removeEventListener("pointerdown", onPointer);
     resizeObserver.disconnect();
     intersectionObserver.disconnect();
-    scene.traverse((o) => {
-      const m = o as THREE.Mesh;
-      m.geometry?.dispose();
-      const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
-      mats.forEach((mat) => mat.dispose());
-    });
-    envMap.dispose();
-    pmrem.dispose();
+    for (const s of [scene, inkScene]) {
+      s.traverse((o) => {
+        const m = o as THREE.Mesh;
+        m.geometry?.dispose();
+        const mats = Array.isArray(m.material) ? m.material : m.material ? [m.material] : [];
+        mats.forEach((mat) => mat.dispose());
+      });
+    }
+    parts.dispose();
     renderer.dispose();
     renderer.domElement.remove();
   };
