@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 520" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Patent-style side elevation of a 6-axis robotic arm. Black lines on a transparent background,
+       so the hero can blend it like the Ingenuity drawing (inverted in dark mode). -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1 L9 5 L0 9" fill="#000" stroke="none" />
+    </marker>
+    <pattern id="hatch" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="10" stroke="#000" stroke-width="1" />
+    </pattern>
+  </defs>
+
+  <!-- Ground with section hatching -->
+  <line x1="40" y1="470" x2="400" y2="470" stroke-width="2" />
+  <rect x="40" y="470" width="360" height="14" fill="url(#hatch)" stroke="none" />
+
+  <!-- Axis centerlines (dash-dot) -->
+  <g stroke-width="0.9" stroke-dasharray="14 4 2 4">
+    <line x1="180" y1="250" x2="180" y2="500" />
+    <line x1="150" y1="386" x2="356" y2="139" />
+    <line x1="290" y1="147" x2="500" y2="267" />
+    <line x1="470" y1="225" x2="470" y2="395" />
+  </g>
+
+  <!-- Base flange (10) and turret (12) -->
+  <g stroke-width="2" fill="#fff">
+    <rect x="105" y="448" width="150" height="22" rx="2" />
+    <path d="M135 448 V392 Q135 378 149 378 H211 Q225 378 225 392 V448 Z" />
+  </g>
+  <g stroke-width="1.2">
+    <line x1="140" y1="430" x2="220" y2="430" />
+    <circle cx="120" cy="459" r="4" />
+    <circle cx="240" cy="459" r="4" />
+    <path d="M150 448 v-12 M210 448 v-12" />
+  </g>
+
+  <!-- Shoulder yoke on the turret -->
+  <path d="M148 380 L156 346 H204 L212 380 Z" stroke-width="2" fill="#fff" />
+
+  <!-- Upper arm (16) -->
+  <path d="M200 366.7 L345.4 182.8 L314.6 157.2 L160 333.3 Z" stroke-width="2" fill="#fff" />
+  <path d="M205 352 L322 204 M188 338 L305 190" stroke-width="1" />
+
+  <!-- Shoulder joint (14) -->
+  <g fill="#fff">
+    <circle cx="180" cy="350" r="34" stroke-width="2" />
+    <circle cx="180" cy="350" r="22" stroke-width="1.3" />
+    <circle cx="180" cy="350" r="6" stroke-width="1.3" />
+  </g>
+
+  <!-- Forearm (20) with rear motor housing and roll joint (J4) -->
+  <path d="M303.4 135.2 A17 17 0 0 0 286.6 164.8 L463.6 261.3 L476.4 238.7 Z" stroke-width="2" fill="#fff" />
+  <g stroke-width="1.3" fill="#fff">
+    <path d="M389.8 219.4 L405.4 192.0 L414.4 197.1 L398.8 224.5 Z" />
+  </g>
+
+  <!-- Elbow joint (18) -->
+  <g fill="#fff">
+    <circle cx="330" cy="170" r="26" stroke-width="2" />
+    <circle cx="330" cy="170" r="16" stroke-width="1.3" />
+    <circle cx="330" cy="170" r="5" stroke-width="1.3" />
+  </g>
+
+  <!-- Wrist (22): pitch joint, tool flange -->
+  <g fill="#fff">
+    <rect x="460" y="252" width="20" height="44" stroke-width="2" />
+    <circle cx="470" cy="250" r="15" stroke-width="2" />
+    <circle cx="470" cy="250" r="7" stroke-width="1.3" />
+    <rect x="450" y="296" width="40" height="8" stroke-width="2" />
+  </g>
+
+  <!-- Parallel gripper (24) holding a workpiece (26) -->
+  <g stroke-width="2" fill="#fff">
+    <rect x="446" y="304" width="48" height="14" />
+    <path d="M449 318 V356 L458 362 V318" />
+    <path d="M491 318 V356 L482 362 V318" />
+  </g>
+  <g stroke-width="1.3">
+    <rect x="459" y="334" width="22" height="22" />
+    <path d="M459 334 L481 356 M481 334 L459 356" stroke-width="0.8" />
+  </g>
+
+  <!-- Joint rotations -->
+  <g stroke-width="1.1" marker-end="url(#arrow)">
+    <path d="M150 372 A44 10 0 1 0 214 370" />
+    <path d="M140 319 A50 50 0 0 1 157 303" />
+    <path d="M298 140 A44 44 0 0 1 345 129" />
+    <path d="M492 228 A30 30 0 0 1 499 258" />
+  </g>
+
+  <!-- Upper-arm length dimension -->
+  <g stroke-width="0.9">
+    <path d="M147 315 L109 283 M295 138 L257 106" />
+    <line x1="119" y1="290" x2="267" y2="113" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+  </g>
+
+  <!-- Reference numeral leaders -->
+  <g stroke-width="0.9">
+    <path d="M110 470 Q86 488 70 494" />
+    <path d="M135 410 Q104 404 86 412" />
+    <path d="M154 368 Q120 380 96 368" />
+    <path d="M247 268 Q270 290 284 292" />
+    <path d="M338 191 Q356 236 352 260" />
+    <path d="M436 230 Q416 210 412 182" />
+    <path d="M480 276 Q520 280 536 268" />
+    <path d="M494 312 Q526 318 542 334" />
+    <path d="M470 362 Q470 398 486 412" />
+  </g>
+
+  <g fill="#000" stroke="none" font-family="Georgia, 'Times New Roman', serif" font-size="17" font-style="italic">
+    <text x="48" y="505">10</text>
+    <text x="62" y="418">12</text>
+    <text x="72" y="368">14</text>
+    <text x="288" y="298">16</text>
+    <text x="344" y="278">18</text>
+    <text x="400" y="176">20</text>
+    <text x="540" y="268">22</text>
+    <text x="546" y="342">24</text>
+    <text x="490" y="424">26</text>
+    <text x="226" y="398">θ₁</text>
+    <text x="118" y="304">θ₂</text>
+    <text x="350" y="122">θ₃</text>
+    <text x="506" y="244">θ₅</text>
+    <text x="168" y="190">L₁</text>
+  </g>
+
+  <!-- Coordinate triad -->
+  <g stroke-width="1.1" marker-end="url(#arrow)">
+    <line x1="470" y1="490" x2="520" y2="490" />
+    <line x1="470" y1="490" x2="470" y2="440" />
+  </g>
+  <g fill="#000" stroke="none" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-style="italic">
+    <text x="526" y="495">x</text>
+    <text x="465" y="432">z</text>
+  </g>
+
+  <text x="300" y="30" fill="#000" stroke="none" font-family="Georgia, 'Times New Roman', serif" font-size="20" letter-spacing="2" text-anchor="middle">FIG. 1</text>
+</svg>

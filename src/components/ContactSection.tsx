@@ -1,4 +1,5 @@
 import { profile } from "@/data/profile";
+import ContactForm from "./ContactForm";
 import { SocialLinks } from "./SocialIcons";
 
 export default function ContactSection() {
@@ -10,9 +11,7 @@ export default function ContactSection() {
           I&apos;m open to collaborations, research discussions and new opportunities in robotics and physical AI.
           Based in {profile.location}.
         </p>
-        <a href={`mailto:${profile.email}`} className="btn btn-primary mt-8">
-          {profile.email}
-        </a>
+        <ContactForm />
         <SocialLinks socials={profile.socials} className="mt-8 justify-center" />
       </div>
     </section>

@@ -13,9 +13,11 @@ export const profile = {
   tagline: "Robot learning, Vision-Language-Action and foundation models: building robots that learn to act in the real world.",
   bio: "I'm a computer scientist (M.Sc., Leibniz University Hannover) focused on robot learning. For my master's thesis I fine-tuned a Vision-Language-Action foundation model for language-conditioned humanoid navigation and took it all the way from teleoperated data collection to deployment on the real robot. I've also worked on tactile robot learning at L3S, generative models for genomic super-resolution, the RoboCup@Work team, and applied AI with LLMs and RAG at PwC.",
   location: "Hannover, Germany",
-  email: "ahmed.alghosaini@gmail.com",
+  // Contact form key from https://web3forms.com: enter the email that should receive messages and
+  // paste the access key it sends you here. The email itself is never shown or shipped with the site.
+  contactFormKey: "eda171d7-628c-4272-bf08-2d47d574e01d",
   siteUrl: "https://your-domain.com",
-  // true = interactive 3D robot that walks toward the cursor; false = show heroMedia below.
+  // true = interactive 3D humanoid behind the intro that looks at the cursor; false = show heroMedia there instead.
   // heroMedia is also the fallback if the visitor's browser can't run WebGL.
   heroInteractive: true,
   // Put your own image, GIF or video in /public and point to it here.

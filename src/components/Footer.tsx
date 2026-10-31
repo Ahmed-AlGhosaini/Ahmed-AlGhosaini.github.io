@@ -8,7 +8,7 @@ export default function Footer() {
         <p>
           © {new Date().getFullYear()} {profile.name}. All rights reserved.
         </p>
-        <SocialLinks socials={[...profile.socials, { label: "Email", href: `mailto:${profile.email}`, icon: "email" }]} />
+        <SocialLinks socials={[...profile.socials, { label: "Contact", href: "/#contact", icon: "email" }]} />
       </div>
     </footer>
   );
