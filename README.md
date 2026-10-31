@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Personal website — Physical AI Engineer
 
-## Getting Started
+Portfolio site (Home, Resume, Projects, per-project pages, Contact) built with Next.js 16, React 19 and Tailwind CSS 4, exported as a fully static site.
 
-First, run the development server:
+## Edit your content
+
+Everything lives in `src/data/`. You never need to touch components to update content.
+
+| File | What it controls |
+| --- | --- |
+| `src/data/profile.ts` | Name, title, bio, email, location, social links, hero image/video |
+| `src/data/projects.ts` | Project cards and detail pages (`featured: true` → shown on Home) |
+| `src/data/resume.ts` | Experience, education, skills, publications, awards |
+
+### Images, GIFs and videos
+
+Put files in `public/` and reference them by path, e.g. `/projects/my-robot.mp4`.
+Anything ending in `.mp4`/`.webm` is rendered as an autoplaying, muted, looping video; everything else as an image.
+
+- `public/hero.svg` — the animated placeholder hero; replace with your robot demo
+- `public/projects/*.svg` — placeholder project covers
+- `public/cv.pdf` — your CV (the "Download PDF" button links to it; keep the filename lowercase)
+- `src/app/favicon.ico` — browser tab icon
+
+Colors and fonts are set at the top of `src/app/globals.css` (`--accent` is the highlight color).
+
+## Run locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev      # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Build & deploy
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run build    # writes the static site to out/
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Vercel** (easiest): push to GitHub, then "Import Project" on vercel.com. No settings needed.
+- **Netlify**: build command `npm run build`, publish directory `out`.
+- **GitHub Pages**: upload the `out/` folder (if served from `username.github.io/repo`, set `basePath: "/repo"` in `next.config.ts`).
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Remember to set `siteUrl` in `src/data/profile.ts` to your real domain.

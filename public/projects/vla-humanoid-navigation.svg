@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice">
+  <!-- Placeholder cover: replace with a photo/GIF/video of your project and update src/data/projects.ts -->
+  <defs>
+    <pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#1d4ed8" stroke-opacity="0.12" stroke-width="1.5"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="900" fill="#e0e7ff"/>
+  <rect width="1200" height="900" fill="url(#g)"/>
+  <circle cx="600" cy="420" r="170" fill="none" stroke="#1d4ed8" stroke-width="3" stroke-dasharray="10 12"/>
+  <circle cx="600" cy="420" r="90" fill="#1d4ed8" fill-opacity="0.9"/>
+  <text x="600" y="700" text-anchor="middle" font-family="ui-sans-serif, system-ui, sans-serif" font-size="44" font-weight="600" fill="#1d4ed8">VLA · Humanoid Navigation</text>
+  <text x="600" y="752" text-anchor="middle" font-family="ui-monospace, monospace" font-size="24" fill="#1d4ed8" fill-opacity="0.7">placeholder image</text>
+</svg>
