@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { profile } from "@/data/profile";
+import { HeroFigureToggle } from "./HeroFigure";
+import Logo from "./Logo";
 import { SocialIcon, SocialLinks } from "./SocialIcons";
 import ThemeToggle from "./ThemeToggle";
 
@@ -40,20 +42,25 @@ export default function Navbar() {
         Skip to content
       </a>
       <nav className="container-page flex h-16 items-center justify-between md:grid md:grid-cols-[1fr_auto_1fr]">
-        <ul className="hidden items-center gap-7 text-sm md:flex">
-          {links.map((l) => (
-            <li key={l.href}>
-              <Link
-                href={l.href}
-                className={`transition-colors hover:text-foreground ${
-                  isActive(l.href) ? "text-foreground font-medium" : "text-muted"
-                }`}
-              >
-                {l.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <div className="flex items-center gap-7">
+          <Link href="/" aria-label="Home" onClick={() => setOpen(false)} className="text-foreground">
+            <Logo />
+          </Link>
+          <ul className="hidden items-center gap-7 text-sm md:flex">
+            {links.map((l) => (
+              <li key={l.href}>
+                <Link
+                  href={l.href}
+                  className={`transition-colors hover:text-foreground ${
+                    isActive(l.href) ? "text-foreground font-medium" : "text-muted"
+                  }`}
+                >
+                  {l.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
 
         <Link href="/" className="text-base font-semibold tracking-tight" onClick={() => setOpen(false)}>
           {profile.name}
@@ -62,11 +69,13 @@ export default function Navbar() {
         <div className="hidden items-center justify-end gap-4 md:flex">
           <SocialLinks socials={profile.socials} />
           <ContactLink />
+          <HeroFigureToggle />
           <ThemeToggle />
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
           <ContactLink onClick={() => setOpen(false)} />
+          <HeroFigureToggle />
           <ThemeToggle />
           <button
             type="button"

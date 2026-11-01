@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { linkedin, profile } from "@/data/profile";
-import HeroRobot from "./HeroRobot";
+import { HeroFigure } from "./HeroFigure";
 import Media from "./Media";
 
 export default function Hero() {
@@ -14,7 +14,11 @@ export default function Hero() {
       <div className="absolute inset-0 -z-10 bg-gradient-to-br from-stone-50 via-background to-indigo-50 dark:from-stone-950 dark:to-indigo-950/40">
         {/* Faded on smaller screens, where the robot sits directly behind the text. */}
         <div className="absolute inset-0 opacity-30 lg:opacity-100">
-          {profile.heroInteractive ? <HeroRobot fallback={heroMedia} alignTop="#hero-photo" alignBottom="#hero-actions" /> : heroMedia}
+          {profile.heroInteractive ? (
+            <HeroFigure fallback={heroMedia} alignTop="#hero-photo" alignBottom="#hero-actions" />
+          ) : (
+            heroMedia
+          )}
         </div>
         {/* Soft veil behind the text so it stays readable where the robot overlaps it. */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_42rem_32rem_at_50%_55%,var(--background)_35%,transparent_75%)] opacity-80" />
@@ -54,7 +58,7 @@ export default function Hero() {
             className="mx-auto mb-8 h-32 w-32 rounded-full border border-line bg-surface object-cover shadow-sm ring-4 ring-background sm:h-40 sm:w-40"
           />
           <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">
-            I&apos;m {profile.name}, a <span className="text-accent">{profile.title}</span>
+            I&apos;m {profile.name}, a&nbsp;<span className="text-accent">{profile.title}</span>
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-muted">{profile.bio}</p>
           <div id="hero-actions" className="mt-10 flex flex-wrap justify-center gap-3">

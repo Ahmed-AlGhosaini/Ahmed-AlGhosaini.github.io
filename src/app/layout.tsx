@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Footer from "@/components/Footer";
+import { HeroFigureProvider } from "@/components/HeroFigure";
 import Navbar from "@/components/Navbar";
 import ThemeScript from "@/components/ThemeScript";
 import { profile } from "@/data/profile";
@@ -34,10 +35,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeScript />
       </head>
       <body className="flex min-h-full flex-col font-sans">
-        <Navbar />
-        <main id="main" className="flex-1">
-          {children}
-        </main>
+        {/* Shares the hero robot's drawing / 3D choice with its toggle in the navbar. */}
+        <HeroFigureProvider>
+          <Navbar />
+          <main id="main" className="flex-1">
+            {children}
+          </main>
+        </HeroFigureProvider>
         <Footer />
       </body>
     </html>
