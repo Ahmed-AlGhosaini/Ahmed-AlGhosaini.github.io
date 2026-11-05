@@ -15,7 +15,14 @@ export default function Hero() {
         {/* Faded on smaller screens, where the robot sits directly behind the text. */}
         <div className="absolute inset-0 opacity-30 lg:opacity-100">
           {profile.heroInteractive ? (
-            <HeroFigure fallback={heroMedia} alignTop="#hero-photo" alignBottom="#hero-actions" />
+            // Head top 0.5cm (~19px) below the portrait's top, feet level with the bio's fifth line.
+            <HeroFigure
+              fallback={heroMedia}
+              alignTop="#hero-photo"
+              alignTopOffset={19}
+              alignBottom="#hero-bio"
+              alignBottomLine={5}
+            />
           ) : (
             heroMedia
           )}
@@ -60,7 +67,9 @@ export default function Hero() {
           <h1 className="text-4xl font-semibold leading-tight tracking-tight sm:text-6xl">
             I&apos;m {profile.name}, a&nbsp;<span className="text-accent">{profile.title}</span>
           </h1>
-          <p className="mt-6 text-lg leading-relaxed text-muted">{profile.bio}</p>
+          <p id="hero-bio" className="mt-6 text-lg leading-relaxed text-muted">
+            {profile.bio}
+          </p>
           <div id="hero-actions" className="mt-10 flex flex-wrap justify-center gap-3">
             <a href={linkedin.href} target="_blank" rel="noopener noreferrer" className="btn">
               LinkedIn

@@ -1,6 +1,6 @@
 "use client";
 
-// Interactive hero background: a 3D humanoid bust that turns its head to look at the mouse cursor.
+// Interactive hero background: a 3D humanoid that turns its head to look at the mouse cursor.
 // The three.js scene lives in ./robotScene and is loaded on demand, so the ~570 KB of three.js
 // doesn't delay the rest of the page from loading and becoming interactive.
 
@@ -10,12 +10,18 @@ export default function HeroRobot({
   fallback,
   alignTop,
   alignBottom,
+  alignTopOffset,
+  alignBottomLine,
 }: {
   fallback: React.ReactNode;
   // CSS selectors of the elements whose top / bottom edges the robot's head top / base line up with
   // (wide layout only). The robot is scaled to span exactly that range.
   alignTop?: string;
   alignBottom?: string;
+  // Start the head this many CSS pixels below alignTop's top edge.
+  alignTopOffset?: number;
+  // Line up the base with the bottom of this line of alignBottom's text instead (counting from 1).
+  alignBottomLine?: number;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -29,7 +35,13 @@ export default function HeroRobot({
     import("./robotScene")
       .then(({ mountRobot }) => {
         if (cancelled) return;
-        cleanup = mountRobot(container, { alignTop, alignBottom, onReady: () => setStatus("ready") });
+        cleanup = mountRobot(container, {
+          alignTop,
+          alignBottom,
+          alignTopOffset,
+          alignBottomLine,
+          onReady: () => setStatus("ready"),
+        });
       })
       // Chunk failed to load, or no WebGL — show the static fallback.
       .catch(() => {
@@ -40,7 +52,7 @@ export default function HeroRobot({
       cancelled = true;
       cleanup?.();
     };
-  }, [alignTop, alignBottom]);
+  }, [alignTop, alignBottom, alignTopOffset, alignBottomLine]);
 
   if (status === "error") return <>{fallback}</>;
 

@@ -1,7 +1,7 @@
 "use client";
 
 // The robot behind the hero text: a static line drawing of a humanoid mid-kick by default, with a navbar
-// button to swap in the interactive 3D bust. three.js is only downloaded once the 3D view is opened.
+// button to swap in the interactive 3D robot. three.js is only downloaded once the 3D view is opened.
 // The figure lives in the home page and the button in the navbar, so they share the mode through
 // context: HeroFigureProvider wraps the whole layout.
 
@@ -26,20 +26,35 @@ export function HeroFigure({
   fallback,
   alignTop,
   alignBottom,
+  alignTopOffset,
+  alignBottomLine,
 }: {
   // Shown if the 3D view can't run (no WebGL).
   fallback: React.ReactNode;
-  // CSS selectors of the elements the robot's top and base line up with (wide layout only).
+  // CSS selectors of the elements the 3D robot's top and base line up with (wide layout only), plus
+  // optionally how far below alignTop the head starts (CSS px) and the line of alignBottom's text the
+  // base stops at.
   alignTop?: string;
   alignBottom?: string;
+  alignTopOffset?: number;
+  alignBottomLine?: number;
 }) {
   const { mode } = useContext(ModeContext);
-  if (mode === "3d") return <HeroRobot fallback={fallback} alignTop={alignTop} alignBottom={alignBottom} />;
+  if (mode === "3d")
+    return (
+      <HeroRobot
+        fallback={fallback}
+        alignTop={alignTop}
+        alignBottom={alignBottom}
+        alignTopOffset={alignTopOffset}
+        alignBottomLine={alignBottomLine}
+      />
+    );
 
   // The drawing's box spans the hero's vertical padding, i.e. from the portrait's top to the buttons'
   // bottom. The PNG is cropped to the robot plus a 4px margin (of 962px), so it's scaled up slightly and
   // shifted to put the robot itself in the box. On extra-wide screens it's centred in the right-hand
-  // gutter; on narrower ones it sits behind the text like the 3D bust, faded (the parent already fades
+  // gutter; on narrower ones it sits behind the text like the 3D robot, faded (the parent already fades
   // it below lg). Black lines on transparent, inverted to white in dark mode.
   return (
     <div aria-hidden="true" className="absolute inset-x-0 inset-y-16 sm:inset-y-24">

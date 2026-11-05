@@ -1,4 +1,4 @@
-// The three.js scene behind HeroRobot: a 3D humanoid bust that turns its head to look at the mouse cursor.
+// The three.js scene behind HeroRobot: a 3D humanoid that turns its head to look at the mouse cursor.
 // The robot is built from three.js primitives, so there is no model file to load.
 // HeroRobot loads this module with import() so three.js stays out of the page's initial bundle.
 // It is drawn as black-and-white line art, like a patent drawing: the parts are rendered into an
@@ -6,8 +6,8 @@
 
 import * as THREE from "three";
 
-// Vertical slice of the bust that should fill the banner height (world units).
-const FRAME = { top: 2.6, bottom: -3.45 };
+// Vertical slice of the robot (head to feet) that should fill the banner height (world units).
+const FRAME = { top: 2.6, bottom: -7.0 };
 const FOV = 30;
 // The cursor is projected onto this plane (between robot and camera) to get a 3D gaze target.
 const GAZE_PLANE_Z = 3;
@@ -19,11 +19,13 @@ const SHARE = { torso: 0.15, neck: 0.35, head: 0.5 };
 const IDLE_AFTER = 4; // seconds without pointer movement before the robot glances around
 // On wide banners, shift the robot right so it sits beside the centred text (fraction of width).
 const WIDE_BREAKPOINT = 1024;
-const WIDE_OFFSET = 0.34;
+const WIDE_OFFSET = 0.31;
 // Linear depth is stored divided by this, so it fits the 0–1 range of the buffer's alpha channel.
 const DEPTH_RANGE = 40;
 // Hatching line spacing (world units): dense on the visor (dark glass), sparse on the joints (graphite).
 const HATCH = { visor: 0.03, joint: 0.06 };
+// Outline width in drawing-buffer pixels.
+const LINE_WIDTH = 1;
 
 // Part pass: view-space normal (xy), part id and linear depth. Hatched parts add the hatch ink
 // (0–1, antialiased) to their id as a fraction up to 0.25, which the ink pass reads back.
@@ -56,8 +58,8 @@ const PART_FRAGMENT = /* glsl */ `
 
 // Ink pass: a pixel is inked when a neighbour belongs to another part, faces a different way
 // (a crease) or the depth jumps (a part overlapping itself). Output is black with coverage alpha.
-// Only one side of each edge is inked (the nearer pixel, or for creases the pixel below/left),
-// which keeps the lines one pixel wide.
+// Neighbours are LINE_WIDTH pixels away, and only one side of each edge is inked (the nearer pixel,
+// or for creases the pixel below/left), which keeps the lines LINE_WIDTH pixels wide.
 const INK_VERTEX = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -76,7 +78,7 @@ const INK_FRAGMENT = /* glsl */ `
     return vec3(p.xy, sqrt(max(0.0, 1.0 - dot(p.xy, p.xy))));
   }
   vec4 at(float x, float y) {
-    return texture2D(tParts, vUv + vec2(x, y) * uTexel);
+    return texture2D(tParts, vUv + vec2(x, y) * uTexel * ${LINE_WIDTH.toFixed(1)});
   }
   // ahead: whether n is the up/right neighbour, which owns creases.
   float edge(vec4 n, bool ahead) {
@@ -111,6 +113,15 @@ function layoutTop(el: HTMLElement) {
   for (let e: HTMLElement | null = el; e; e = e.offsetParent as HTMLElement | null) y += e.offsetTop;
   return y;
 }
+// Distance from the page top to the bottom of `el`, or of its `line`-th line of text (counting from 1).
+function layoutBottom(el: HTMLElement, line?: number) {
+  if (!line) return layoutTop(el) + el.offsetHeight;
+  const style = getComputedStyle(el);
+  // A unitless line-height may be reported as the bare multiplier.
+  let lineHeight = parseFloat(style.lineHeight);
+  if (!style.lineHeight.endsWith("px")) lineHeight *= parseFloat(style.fontSize);
+  return layoutTop(el) + parseFloat(style.paddingTop) + Math.min(line * lineHeight, el.clientHeight);
+}
 
 function buildRobot() {
   // Every part gets its own id, so the ink pass outlines it wherever it meets another part.
@@ -125,39 +136,66 @@ function buildRobot() {
       }),
     );
 
-  // Smooth lathe solid from (radius, y) control points, flattened front-to-back.
-  const lathe = (points: number[][], hatch = 0, depth = 0.6) => {
+  // Smooth lathe solid from (radius, y) control points, flattened front-to-back and widened sideways.
+  const lathe = (points: number[][], hatch = 0, depth = 0.6, width = 1.1) => {
     const curve = new THREE.SplineCurve(points.map(([x, y]) => new THREE.Vector2(x, y)));
     const m = mesh(new THREE.LatheGeometry(curve.getPoints(48), 64), hatch);
-    m.scale.z = depth;
+    m.scale.set(width, 1, depth);
     return m;
   };
 
-  // Torso: chest shell (shoulders → ribcage), graphite waist actuator, pelvis shell.
+  // Body: the pelvis and legs stay planted; the upper body (torso) turns above them at the waist.
+  const body = new THREE.Group();
+  const pelvis = lathe([[0.001, -2.6], [0.62, -2.5], [0.66, -2.25], [0.56, -1.98], [0.001, -1.9]]);
+  body.add(pelvis);
+
+  // Legs: graphite hip, knee and ankle joints between shells, like the arms. Toes turned out a little.
+  for (const side of [-1, 1]) {
+    const leg = new THREE.Group();
+    leg.position.set(side * 0.4, -2.55, 0);
+    const hip = mesh(new THREE.SphereGeometry(0.25, 32, 24), HATCH.joint);
+    const thigh = mesh(new THREE.CapsuleGeometry(0.24, 1.4, 8, 32));
+    thigh.position.y = -1.0;
+    const knee = mesh(new THREE.SphereGeometry(0.19, 24, 16), HATCH.joint);
+    knee.position.set(0, -2.05, 0.02);
+    const shin = mesh(new THREE.CapsuleGeometry(0.2, 1.45, 8, 32));
+    shin.position.y = -2.98;
+    const ankle = mesh(new THREE.SphereGeometry(0.13, 24, 16), HATCH.joint);
+    ankle.position.y = -3.97;
+    // About 15% of the robot's height, like a human foot, with the heel just behind the ankle.
+    const foot = mesh(new THREE.CapsuleGeometry(0.2, 0.9, 8, 24).rotateX(Math.PI / 2));
+    foot.scale.set(1.2, 0.75, 1);
+    foot.position.set(0, -4.15, 0.32);
+    foot.rotation.y = side * 0.12;
+    leg.add(hip, thigh, knee, shin, ankle, foot);
+    body.add(leg);
+  }
+
+  // Torso: chest shell (shoulders → ribcage) and graphite waist actuator, which sinks into the pelvis.
   const torso = new THREE.Group();
   const chest = lathe(
     [[0.001, -1.45], [0.62, -1.4], [0.8, -0.85], [0.88, -0.35], [0.78, 0.02], [0.4, 0.2], [0.001, 0.24]],
   );
   const waist = lathe([[0.001, -2.05], [0.5, -2.0], [0.46, -1.7], [0.52, -1.35], [0.001, -1.3]], HATCH.joint);
-  const pelvis = lathe([[0.001, -3.6], [0.66, -3.5], [0.66, -2.3], [0.56, -1.95], [0.001, -1.9]]);
   const collar = mesh(new THREE.TorusGeometry(0.27, 0.05, 16, 48));
   collar.rotation.x = Math.PI / 2;
   collar.position.y = 0.17;
-  torso.add(chest, waist, pelvis, collar);
+  torso.add(chest, waist, collar);
+  body.add(torso);
 
-  // Chest core light.
+  // Chest core light. The chest bulges forward above it, so it tilts top-forward to sit clear of the shell.
   const core = mesh(new THREE.TorusGeometry(0.075, 0.016, 12, 40));
-  core.position.set(0, -0.45, 0.515);
-  core.rotation.x = -0.2;
+  core.position.set(0, -0.45, 0.54);
+  core.rotation.x = 0.1;
   const coreBack = mesh(new THREE.CircleGeometry(0.07, 40), HATCH.joint);
-  coreBack.position.set(0, -0.45, 0.51);
-  coreBack.rotation.x = -0.2;
+  coreBack.position.set(0, -0.45, 0.534);
+  coreBack.rotation.x = 0.1;
   torso.add(core, coreBack);
 
   // Shoulders and upper arms.
   for (const side of [-1, 1]) {
     const shoulder = new THREE.Group();
-    shoulder.position.set(side * 0.98, -0.2, 0);
+    shoulder.position.set(side * 1.07, -0.2, 0);
     shoulder.rotation.z = side * 0.07;
     const joint = mesh(new THREE.SphereGeometry(0.24, 32, 24), HATCH.joint);
     const cap = mesh(new THREE.SphereGeometry(0.3, 40, 28));
@@ -215,7 +253,7 @@ function buildRobot() {
       .multiply(skullScale)
       .add(skullCenter);
 
-  const eyeGeometry = new THREE.CapsuleGeometry(0.032, 0.085, 4, 16).rotateZ(Math.PI / 2);
+  const eyeGeometry = new THREE.CapsuleGeometry(0.04, 0.105, 4, 16).rotateZ(Math.PI / 2);
   const eyes: THREE.Mesh[] = [];
   for (const side of [-1, 1]) {
     const eye = mesh(eyeGeometry);
@@ -239,7 +277,7 @@ function buildRobot() {
   }
   neck.add(head);
 
-  return { torso, neck, head, eyes, headCenter: skullCenter };
+  return { body, torso, neck, head, eyes, headCenter: skullCenter };
 }
 
 // Mounts the robot into `container` and returns a cleanup function.
@@ -249,12 +287,18 @@ export function mountRobot(
   {
     alignTop,
     alignBottom,
+    alignTopOffset = 0,
+    alignBottomLine,
     onReady,
   }: {
     // CSS selectors of the elements whose top / bottom edges the robot's head top / base line up with
     // (wide layout only). The robot is scaled to span exactly that range.
     alignTop?: string;
     alignBottom?: string;
+    // Start the head this many CSS pixels below alignTop's top edge.
+    alignTopOffset?: number;
+    // Line up the base with the bottom of this line of alignBottom's text instead (counting from 1).
+    alignBottomLine?: number;
     onReady: () => void;
   },
 ) {
@@ -291,11 +335,11 @@ export function mountRobot(
   const inkCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const bufferSize = new THREE.Vector2();
 
-  const { torso, neck, head, eyes, headCenter } = buildRobot();
-  scene.add(torso);
-  torso.updateMatrixWorld(true);
+  const { body, torso, neck, head, eyes, headCenter } = buildRobot();
+  scene.add(body);
+  body.updateMatrixWorld(true);
   const headTop = head.localToWorld(headCenter.clone().setY(headCenter.y + 0.5));
-  const base = new THREE.Vector3(0, new THREE.Box3().setFromObject(torso).min.y, 0);
+  const base = new THREE.Vector3(0, new THREE.Box3().setFromObject(body).min.y, 0);
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -320,10 +364,10 @@ export function mountRobot(
     parts.setSize(bufferSize.x, bufferSize.y);
     ink.uniforms.uTexel.value.set(1 / bufferSize.x, 1 / bufferSize.y);
     camera.aspect = w / h;
-    // Fit the bust to the banner height, but keep its shoulders in view on narrow screens.
+    // Fit the robot to the banner height, but keep its shoulders in view on narrow screens.
     const halfTan = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
     const frameH = FRAME.top - FRAME.bottom;
-    const dist = Math.max(frameH / (2 * halfTan), 4.2 / (2 * halfTan * camera.aspect));
+    const dist = Math.max(frameH / (2 * halfTan), 4.4 / (2 * halfTan * camera.aspect));
     const centerY = (FRAME.top + FRAME.bottom) / 2;
     camera.position.set(0, centerY + 0.15, dist);
     camera.lookAt(0, centerY, 0);
@@ -339,9 +383,9 @@ export function mountRobot(
       if (topEl) {
         const toPx = (p: THREE.Vector3) => ((1 - p.clone().project(camera).y) / 2) * h;
         const headTopPx = toPx(headTop);
-        const targetTop = layoutTop(topEl) - layoutTop(container);
+        const targetTop = layoutTop(topEl) + alignTopOffset - layoutTop(container);
         if (bottomEl) {
-          const targetBottom = layoutTop(bottomEl) + bottomEl.offsetHeight - layoutTop(container);
+          const targetBottom = layoutBottom(bottomEl, alignBottomLine) - layoutTop(container);
           camera.zoom = (targetBottom - targetTop) / (toPx(base) - headTopPx);
           camera.updateProjectionMatrix();
         }
