@@ -11,7 +11,7 @@ function subscribe(onChange: () => void) {
   return () => observer.disconnect();
 }
 
-// Falls back to the default (dark) in case ThemeScript didn't run, so the button never stays blank.
+// Falls back to dark, like the static HTML, in case ThemeScript didn't run, so the button never stays blank.
 const getTheme = (): Theme =>
   (document.documentElement.dataset.theme as Theme | undefined) ?? "dark";
 

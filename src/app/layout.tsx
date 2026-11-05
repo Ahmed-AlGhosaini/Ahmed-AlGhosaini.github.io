@@ -28,8 +28,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // Dark by default, so the static HTML is dark even without JS.
-    // suppressHydrationWarning: ThemeScript may switch data-theme to a saved "light" before React hydrates.
+    // Dark is only the fallback for visitors without JS; ThemeScript picks the saved or OS theme.
+    // suppressHydrationWarning: ThemeScript may change data-theme before React hydrates.
     <html lang="en" data-theme="dark" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <ThemeScript />
